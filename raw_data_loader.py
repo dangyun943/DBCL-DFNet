@@ -75,7 +75,7 @@ class SingleOmicsDataset:
 
         return threshold_value
 
-    def reduce_dimensionality(self, subset: List):  # 参数名修正
+    def reduce_dimensionality(self, subset: List): 
         self._selected_subset = subset
         self._train_data = self._train_data.iloc[:, subset]
         self._test_data = self._test_data.iloc[:, subset]
@@ -83,7 +83,6 @@ class SingleOmicsDataset:
         self._update_combined_data()
     
     def _update_combined_data(self):
-        """更新合并后的数据集"""
         if self._train_data is not None and self._test_data is not None:
             self._combined_data = pd.concat(
                 [self._train_data, self._test_data], 
@@ -95,7 +94,6 @@ class SingleOmicsDataset:
     
     @property
     def combined_data(self):
-        """获取合并后的完整数据集"""
         return self._combined_data
 
     @property
@@ -169,7 +167,6 @@ class SingleOmicsDataset:
             raise Exception("The omics data indices are not equal to label indices.")
 
     def get_data_structure(self):
-        # 仅返回有效属性
         return self._sparse_adj_mat, self._corr, self._relevance,  self._selected_subset
 
 
