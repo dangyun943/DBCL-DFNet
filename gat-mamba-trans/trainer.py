@@ -6,19 +6,19 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import CrossEntropyLoss, ModuleList
 from torch.optim.lr_scheduler import StepLR
-from raw_data_loader_copy import MultiOmicsDataset
-from gat.Transformer import AdaptiveDimTransformer
+from raw_data_loader import MultiOmicsDataset
+from gat-mamba-trans.Transformer import AdaptiveDimTransformer
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score
 import numpy as np
-from gat.base_models import HeteroGNN, VCDN,DynamicMultiheadAttentionFusion
+from gat-mamba-trans.base_models import HeteroGNN, VCDN,DynamicMultiheadAttentionFusion
 from utils import calculate_performance_metrics
 from torchmetrics import (
     Accuracy, Precision, Recall, F1Score, AUROC,
     Specificity, NegativePredictiveValue, StatScores
 )
 from torch_geometric.data import HeteroData
-from gat.loss import ContrastiveLoss
-from gat.graph_data_loader_copy import HeteroDataset
+from gat-mamba-trans.loss import ContrastiveLoss
+from gat-mamba-trans.graph_data_loader import HeteroDataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ModelTrainer(pl.LightningModule):
@@ -40,7 +40,7 @@ class ModelTrainer(pl.LightningModule):
             weight:List[float]=[0.5,0.5],
             tune_hyperparameters: float = False,
             trial=None,
-            contrastive_weight: float = 0.5,  # 新增：对比损失权重
+            contrastive_weight: float = 0.5,
             temperature: float = 0.5
     ) -> None:
         super().__init__()
@@ -107,10 +107,9 @@ class ModelTrainer(pl.LightningModule):
     def forward(self, data: HeteroDataset, multimodal: bool = False, phase: str = "train", stage: str = "only") -> Union[Tensor, List[Tensor]]:
         output = []
         output1 = []
-        features = []  # 新增：存储HeteroGNN特征
-        features1 = []  # 新增：存储Transformer特征
+        features = []
+        features1 = [] 
         for modality in range(self.num_modalities):
-            # 修改：返回特征和输出
             feat, out = self.unimodal_model[modality](
                 data[modality].x_dict, data[modality].edge_index_dict,
                 data[modality].edge_attr_dict, phase=phase, stage=stage
@@ -119,7 +118,6 @@ class ModelTrainer(pl.LightningModule):
             output.append(out)
             
         for modality in range(self.num_modalities):
-            # 修改：返回特征和输出
             feat1, out1 = self.unimodal_model1[modality](
                 data[modality]['patient'].x1, stage=stage
             )
@@ -127,7 +125,7 @@ class ModelTrainer(pl.LightningModule):
             output1.append(out1)
             
         if not multimodal:
-            return output, output1, features, features1  # 修改：返回特征
+            return output, output1, features, features1
         
         if self.multimodal_decoder is not None:
             return self.multimodal_decoder(features, features1)
@@ -138,12 +136,10 @@ class ModelTrainer(pl.LightningModule):
         is_single_modality = self.num_modalities == 1
         optimizers = self.optimizers()
         lr_schedulers = self.lr_schedulers()
-        # 修改：获取特征
         outputs, outputs1, features, features1 = self.forward(
             train_batch, multimodal=False, phase="train", stage="only"
         )
         
-        # 新增：存储对比损失值
         total_contrastive_loss = 0.0
         
         for modality in range(self.num_modalities):
@@ -154,15 +150,13 @@ class ModelTrainer(pl.LightningModule):
             opt.zero_grad()
             
             mask = train_batch[modality]['patient'].train_mask
-            # 原始分类损失
             loss = self.loss_fn(outputs[modality][mask], train_batch[modality]['patient'].y[mask])
-            
-            # 新增：对比损失
+
             contrast_loss = self.contrastive_loss(
                 features[modality][mask], 
                 features1[modality][mask].detach()
             )
-            # 组合损失
+
             total_loss = self.weight[0]*loss + self.contrastive_weight * contrast_loss
             total_contrastive_loss += contrast_loss.item()
             
@@ -177,27 +171,23 @@ class ModelTrainer(pl.LightningModule):
             else:
                 lr_schedulers[modality].step()
         
-        # 优化多组学模态模型 (unimodal_model1)
         for modality in range(self.num_modalities):
             if is_single_modality:
                 opt = optimizers[1]
             else:
                 opt = optimizers[modality + self.num_modalities] 
             
-            # 原始分类损失
             omics_mask = train_batch[modality]['patient'].train_mask
             omics_loss = self.loss_fn(
                 outputs1[modality][omics_mask],
                 train_batch[modality]['patient'].y[omics_mask]
             )
             
-            # 新增：对比损失
             contrast_loss = self.contrastive_loss(
                 features[modality][omics_mask].detach(), 
                 features1[modality][omics_mask]
             )
-            
-            # 组合损失
+
             total_loss = self.weight[1]*omics_loss + self.contrastive_weight * contrast_loss
             total_contrastive_loss += contrast_loss.item()
             
@@ -212,7 +202,6 @@ class ModelTrainer(pl.LightningModule):
             else:
                 lr_schedulers[modality + self.num_modalities].step()
 
-        # 记录总对比损失
         self.log_metrics.setdefault("train_total_contrast_loss", []).append(total_contrastive_loss)
         
         if self.train_multimodal_decoder and self.multimodal_decoder is not None:
@@ -229,68 +218,53 @@ class ModelTrainer(pl.LightningModule):
             lr_schedulers[-1].step()
 
     def on_validation_epoch_end(self):
-        """每个验证周期结束时触发的剪枝逻辑"""
         if self.tune_hyperparameters:
             if self.tune_hyperparameters and hasattr(self, 'trial') and self.trial:
-                # 安全获取聚合后的验证准确率
                 current_acc = self.trainer.callback_metrics["val_acc"]
         
                 if current_acc is not None:
-                    # 向Optuna报告指标并触发剪枝
                     self.trial.report(current_acc.item(), self.current_epoch)
                     if self.trial.should_prune():
                         print(f"Trial {self.trial.number} pruned at epoch {self.current_epoch}")
-                        self.trainer.should_stop = True  # 立即停止训练\
+                        self.trainer.should_stop = True
 
     def validation_step(self, validation_batch, batch_idx: int):
         if self.tune_hyperparameters:
-        # 获取模型输出
             if self.multimodal_decoder is not None:
                 output= self.forward(validation_batch, multimodal=True, phase="test", stage="multi") 
             else:
                 output, output1, features, features1  = self.forward(validation_batch, multimodal=False, phase="test", stage="only")
-                output = output[0]  # 假设我们主要关注第一个输出
+                output = output[0]
 
-        # 获取验证集掩码
             mask = validation_batch[0]['patient'].val_mask
-        
-        # 提取模型预测
+
             pred_val_data = output[mask]
-        
-        # 获取真实标签
+
             actual_labels = validation_batch[0]['patient'].y[mask]
-        
-        # 计算损失
-            loss = self.loss_fn(pred_val_data, actual_labels)  # 使用与训练相同的损失函数
-        
-        # 记录验证损失
+
+            loss = self.loss_fn(pred_val_data, actual_labels)
+
             self.log("val_loss", loss, batch_size=len(mask), on_epoch=True, prog_bar=True)
-        
-        # 转换为CPU用于指标计算
+
             pred_val_data = pred_val_data.detach().cpu()
             actual_output = actual_labels.detach().cpu()
-        
-        # 计算预测概率
+
             if self.num_classes == 2:
                 final_output = F.softmax(pred_val_data, dim=1).numpy()
             else:
                 final_output = pred_val_data.numpy()
 
-        # 二分类情况
             if self.num_classes == 2:
                 auc = roc_auc_score(actual_output, final_output[:, 1])
                 acc = accuracy_score(actual_output, final_output.argmax(1))
                 sensitivity, specificity, ppv, npv = calculate_performance_metrics(actual_output,
                                                                              final_output.argmax(1))
-
-            # 使用 self.log 记录指标（自动聚合）
                 self.log("val_acc", acc, batch_size=len(mask), on_epoch=True, prog_bar=True)
                 self.log("val_auc", auc, batch_size=len(mask), on_epoch=True)
                 self.log("val_recall", sensitivity, batch_size=len(mask), on_epoch=True)
                 self.log("val_specificity", specificity, batch_size=len(mask), on_epoch=True)
                 self.log("val_ppv", ppv, batch_size=len(mask), on_epoch=True)
                 self.log("val_npv", npv, batch_size=len(mask), on_epoch=True)
-        # 多分类情况
             else:
                 acc = accuracy_score(actual_output, final_output.argmax(1))
                 f1_macro = f1_score(actual_output, final_output.argmax(1), average="macro")
@@ -299,7 +273,6 @@ class ModelTrainer(pl.LightningModule):
                 precision = precision_score(actual_output, final_output.argmax(1), average="weighted")
                 recall = recall_score(actual_output, final_output.argmax(1), average="weighted")
 
-                # 使用 self.log 记录指标（自动聚合）
                 self.log("val_acc", acc, batch_size=len(mask), on_epoch=True, prog_bar=True)
                 self.log("val_f1_macro", f1_macro, batch_size=len(mask), on_epoch=True)
                 self.log("val_f1_micro", f1_micro, batch_size=len(mask), on_epoch=True)
@@ -324,7 +297,6 @@ class ModelTrainer(pl.LightningModule):
 
         from torchmetrics.functional import accuracy, precision, recall, f1_score, auroc
         if self.num_classes == 2:
-            # 二分类任务
             auc = auroc(final_output[:, 1], actual_output, task="binary")
             acc = accuracy(predicted_labels, actual_output, task="binary")
             precision_val = precision(predicted_labels, actual_output, task="binary")  # PPV
@@ -341,7 +313,6 @@ class ModelTrainer(pl.LightningModule):
             self.log_metrics.setdefault("test_Specificity", []).append(specificity.item())
             self.log_metrics.setdefault("test_NPV", []).append(npv.item())
         else:
-            # 多分类任务
             acc = accuracy(predicted_labels, actual_output, task="multiclass", num_classes=self.num_classes)
             precision_val = precision(predicted_labels, actual_output, task="multiclass", average="weighted",
                                       num_classes=self.num_classes)
