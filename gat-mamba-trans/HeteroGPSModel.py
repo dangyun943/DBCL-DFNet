@@ -23,24 +23,12 @@ torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 class PhaseAgnosticGAT(GATConv):
     def forward(self, x, edge_index, edge_attr="None",phase="train"):
-        # 显式忽略phase及其他无关参数
         return super().forward(x, edge_index, edge_attr)
 class HeteroGPSModel(torch.nn.Module):
     def __init__(self, hidden_channels: List[int], out_channels, num_layers, num_heads: int = 1, bias: bool = True,
                  dropout: float = 0.0, local_gnn_type: str = 'GINE', global_model_type: str = 'Transformer'):
         super().__init__()
         self.convs = torch.nn.ModuleList()
-        # for layer_id in range(num_layers):
-        #     conv = HeteroConv({
-        #     ('patient', 'similar', 'patient'): GATConv(-1, hidden_channels[layer_id], heads=num_heads, concat=False,
-        #                                                dropout=dropout, add_self_loops=True, edge_dim=1),
-        #     ('feature', 'similar', 'feature'): GATConv(-1, hidden_channels[layer_id], heads=num_heads, concat=False,
-        #                                                dropout=dropout, add_self_loops=True, edge_dim=2),
-        #     ('feature', 'belong', 'patient'): GATConv((-1, -1), hidden_channels[layer_id], heads=num_heads,
-        #                                               concat=False, dropout=dropout, add_self_loops=False,
-        #                                               edge_dim=None),
-        #     }, aggr='mean')
-        #     self.convs.append(conv)
         conv = HeteroConv({
             ('patient', 'similar', 'patient'): PhaseAgnosticGAT(-1, hidden_channels[0], heads=num_heads, concat=False,
                                                        dropout=dropout, add_self_loops=True, edge_dim=1),
@@ -52,7 +40,6 @@ class HeteroGPSModel(torch.nn.Module):
         }, aggr='mean')
         self.convs.append(conv)
         for layer_id in range(num_layers):
-            # 使用 GPSLayer 替代传统的 GATConv
             conv = HeteroConv({
                 ('feature', 'belong', 'patient'): PhaseAgnosticGAT((-1, -1), hidden_channels[layer_id], heads=num_heads,
                                                           concat=False, dropout=dropout, add_self_loops=False,
@@ -874,4 +861,5 @@ class HeteroGPSLayer(nn.Module):
             f'global_model_type={self.global_model_type}, ' \
             f'heads={self.num_heads}'
         return s
+
 
