@@ -25,11 +25,9 @@ from pytorch_lightning import Trainer
 
 
 def select_top_feats(x_train, y_train, feat_size, num_omics):
-    """基于F3分数的特征选择"""
     subsets = []
     remaining = feat_size
     for omics_idx in range(num_omics):
-        # 修正：使用 num_omics 而不是未定义的 omimambacs_idx
         k = remaining // (num_omics - omics_idx) if (num_omics - omics_idx) !=0 else remaining
         selected = select_feature_combined(x_train[omics_idx], y_train, k)
         subsets.append(selected)
@@ -87,9 +85,7 @@ def main():
             x_train = [multiomics_deepcopy.get(i).train_data.values for i in range(multiomics_deepcopy.num_omics)]
             y_train = multiomics_deepcopy.get(0).train_label.values.ravel()
     
-            # 执行新特征选择
             final_feat_subset = select_top_feats(x_train, y_train, feat_size, multiomics_deepcopy.num_omics)
-            # 应用特征选择结果
             multiomics_deepcopy.reduce_dimensionality(final_feat_subset)
             hetero_data = HeteroDataset(multiomics_deepcopy1,multiomics_deepcopy, sparsity_rate=cfg.DATASET.PATIENT_SPARSITY_RATES,
                                             tune_hyperparameters=cfg.SOLVER.TUNE_HYPER,
@@ -114,9 +110,8 @@ def main():
                     vcdn_lr=cfg.VCDN.LR,
                     vcdn_wd=cfg.VCDN.WD,
                     trans_dropout_rate=cfg.GAT.TRANS_DROPOUT_RATE,
-                    tune_hyperparameters=False  # 测试时关闭超参优化
+                    tune_hyperparameters=False
             )
-                # 2. 构建保存路径
             save_model_name = cfg.RESULT.SAVE_MODEL_TMPL.format(
                 dataset_name=cfg.DATASET.NAME,
                 fold_idx=fold_idx +1,
@@ -125,17 +120,8 @@ def main():
             )
             checkpoint_path = os.path.join(cfg.RESULT.SAVE_MODEL_DIR, save_model_name)
             checkpoint = torch.load(checkpoint_path)
-            if 'epoch' in checkpoint:
-                epoch = checkpoint['epoch']
-                print(f"检查点对应的epoch: {epoch}")
-            elif 'current_epoch' in checkpoint:
-                epoch = checkpoint['current_epoch']
-                print(f"检查点对应的epoch: {epoch}")
-            else:
-                print("检查点中没有找到epoch信息。")
             model = ModelTrainer.load_from_checkpoint(
                 checkpoint_path=checkpoint_path,
-                # 传递初始化参数（必须与训练时一致）
                 trial=None,
                 dataset=new_model.dataset,
                 dataset1=new_model.dataset1,
@@ -146,7 +132,7 @@ def main():
                 unimodal_model1=new_model.unimodal_model1,
                 multimodal_decoder=new_model.multimodal_decoder,
                 loss_fn=new_model.loss_function,
-                train_multimodal_decoder=True,  # 根据实际阶段设置
+                train_multimodal_decoder=True,
                 gat_wd=new_model.gat_wd,
                 gat_lr=new_model.gat_lr,
                 vcdn_lr=new_model.vcdn_lr,
@@ -154,7 +140,7 @@ def main():
                 trans_dropout_rate=new_model.trans_dropout_rate,
                 contrastive_loss_fn=new_model.contrastive_loss,
                 tune_hyperparameters=new_model.tune_hyperparameters,
-                strict=True  # 允许忽略缺失的键（如预训练时无多模态解码器）
+                strict=True 
             )
             model.eval()
             model.requires_grad_(False)
