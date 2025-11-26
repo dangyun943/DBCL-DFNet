@@ -47,48 +47,6 @@ Folder/File name               Description
 |     └─test_index.csv         Patient indices for test set
 |     └─test_labels.csv        Labels for test set patients
 =============================================================================
-</pre>
-
-The characteristics of the preprocessed multiomics datasets utilized in our manuscript are provided in the following table.
-
-<table>
-  <tr>
-    <th rowspan="2">Dataset</th>
-    <th rowspan="2">Categories</th>
-    <th rowspan="2">#Patients</th>
-    <th colspan="3">#Features</th>
-  </tr>
-  <tr>
-    <th>DNA</th>
-    <th>mRNA</th>
-    <th>miRNA</th>
-  </tr>
-  <tr>
-    <td>BLCA</td>
-    <td>High-grade: 397, Low-grade: 21</td>
-    <td>418</td>
-    <td>7,999</td>
-    <td>2,373</td>
-    <td>249</td>
-  </tr>
-  <tr>
-    <td>LGG</td>
-    <td>Grade II: 254, Grade III: 268</td>
-    <td>522</td>
-    <td>8,277</td>
-    <td>1,166</td>
-    <td>287</td>
-  </tr>
-  <tr>
-    <td>RCC</td>
-    <td>KICH: 65, KIRC: 201, KIRP: 294</td>
-    <td>560</td>
-    <td>4,107</td>
-    <td>2,456</td>
-    <td>238</td>
-  </tr>
-</table>
-
 
 
 ## Running DBCL-DFNet with Our Datasets for Result Reproduction
