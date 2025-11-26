@@ -66,23 +66,21 @@ class HeteroDataset:
         hetero_data['patient'].y = torch.tensor(label.to_numpy().flatten(), dtype=torch.long).to(device)
         hetero_data['patient'].test_mask = torch.tensor(np.arange(single_data.num_samples) >= single_data.num_train_samples, dtype=torch.bool).to(device)
         if self.tune_hyperparameters:
-            # train_index, val_index = train_test_split(range(single_data.num_train_samples), test_size=0.1,
-            #                                           random_state=self.seed, stratify=single_data.train_label)
-            # train_index.sort()
-            # val_index.sort()
+            train_index, val_index = train_test_split(range(single_data.num_train_samples), test_size=0.1,
+                                                      random_state=self.seed, stratify=single_data.train_label)
+            train_index.sort()
+            val_index.sort()
 
-            # train_mask = np.zeros(single_data.num_samples, dtype=bool)
-            # train_mask[train_index] = True
-            # train_mask = torch.tensor(train_mask, dtype=torch.bool)
+            train_mask = np.zeros(single_data.num_samples, dtype=bool)
+            train_mask[train_index] = True
+            train_mask = torch.tensor(train_mask, dtype=torch.bool)
 
-            # val_mask = np.zeros(single_data.num_samples, dtype=bool)
-            # val_mask[val_index] = True
-            # val_mask = torch.tensor(val_mask, dtype=torch.bool)
+            val_mask = np.zeros(single_data.num_samples, dtype=bool)
+            val_mask[val_index] = True
+            val_mask = torch.tensor(val_mask, dtype=torch.bool)
 
-            # hetero_data['patient'].train_mask = train_mask
-            # hetero_data['patient'].val_mask = val_mask
-            hetero_data['patient'].train_mask = torch.tensor(np.arange(single_data.num_samples) < single_data.num_train_samples, dtype=torch.bool).to(device)
-            hetero_data['patient'].val_mask =hetero_data['patient'].test_mask
+            hetero_data['patient'].train_mask = train_mask
+            hetero_data['patient'].val_mask = val_mask
         else:
             hetero_data['patient'].train_mask = torch.tensor(np.arange(single_data.num_samples) < single_data.num_train_samples, dtype=torch.bool).to(device)
 
