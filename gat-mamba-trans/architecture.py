@@ -3,13 +3,13 @@ from typing import List, Optional
 import torch.nn.functional as F
 import torch
 from torch.nn import CrossEntropyLoss
-from gat.Transformer import AdaptiveDimTransformer, CompressionLayer
-from gat.graph_data_loader import HeteroDataset
-from raw_data_loader_copy import MultiOmicsDataset
-from gat.trainer import ModelTrainer
-from gat.loss import ContrastiveLoss
-from gat.base_models import HeteroGNN, VCDN,DynamicMultiheadAttentionFusion
-from gat.HeteroGPSModel  import HeteroGPSModel
+from  gat-mamba-trans.Transformer import AdaptiveDimTransformer, CompressionLayer
+from gat-mamba-trans.graph_data_loader import HeteroDataset
+from raw_data_loader import MultiOmicsDataset
+from  gat-mamba-trans.trainer import ModelTrainer
+from  gat-mamba-trans.loss import ContrastiveLoss
+from  gat-mamba-trans.base_models import HeteroGNN, VCDN,DynamicMultiheadAttentionFusion
+from  gat-mamba-trans.HeteroGPSModel  import HeteroGPSModel
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NewModel:
@@ -28,8 +28,8 @@ class NewModel:
                  vcdn_lr: float,
                  trans_dropout_rate:float,
                  vcdn_wd: float,
-                 contrastive_weight: float = 0.5,  # 对比损失权重
-                 temperature: float = 0.5,   # 温度参数 
+                 contrastive_weight: float = 0.5, 
+                 temperature: float = 0.5, 
                  weight: List[float]= [0.5,0.5],      
                  tune_hyperparameters: bool = False,
                  trial=None
@@ -41,7 +41,6 @@ class NewModel:
         self.unimodal_model1: List[AdaptiveDimTransformer] = []
         self.multimodal_decoder: Optional[VCDN] = None
         self.loss_function = CrossEntropyLoss()
-        # 正确创建ContrastiveLoss实例
         self.contrastive_loss = ContrastiveLoss(temperature=temperature) 
         self.num_modalities = num_modalities
         self.num_classes = num_classes
