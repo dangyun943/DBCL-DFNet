@@ -13,13 +13,13 @@ from gat.architecture import NewModel
 from utils import seed_everything, create_file, save_output, sort_file, is_directory_empty, \
     load_dataset_indices
 from configs import get_cfg_defaults
-from raw_data_loader_copy import MultiOmicsDataset
+from raw_data_loader import MultiOmicsDataset
 import torch
 import gc
 from pytorch_lightning import Trainer
-from feature_selection1 import select_feature_combined
+from feature_selection import select_feature_combined
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-from gat.trainer import ModelTrainer
+from gat-mamba-trans.trainer import ModelTrainer
 
 from pytorch_lightning import Trainer
 
