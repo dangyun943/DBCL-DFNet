@@ -15,5 +15,5 @@ VCDN:
   LR: 5e-2
 SOLVER:
   TUNE_HYPER : False
-  MAX_EPOCHS : 93
+  MAX_EPOCHS : 100
 
