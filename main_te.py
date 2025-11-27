@@ -8,8 +8,8 @@ import copy
 from collections import defaultdict
 import numpy as np
 import pytorch_lightning as pl
-from gat.graph_data_loader_copy import HeteroDataset
-from gat.architecture import NewModel
+from gat-mamba-trans.graph_data_loader_copy import HeteroDataset
+from gat-mamba-trans.architecture import NewModel
 from utils import seed_everything, create_file, save_output, sort_file, is_directory_empty, \
     load_dataset_indices
 from configs import get_cfg_defaults
